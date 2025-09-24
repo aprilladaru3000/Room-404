@@ -1,44 +1,78 @@
-local loopCount = 0
-local roomText = "You wake up in Room 404."
-local subtleChanges = {
-    "You feel like you've been here before...",
-    "The door won't open.",
-    "The light flickers.",
-    "Something's different...",
-    "You hear breathing, but you're alone.",
-    "This isn't just a room anymore.",
-    "You're part of the room.",
-    "Room 404 is inside you now.",
+player = {
+    x = 400,
+    y = 300,
+    size = 20,
+    speed = 200,
+    sanity = 100,
+    maxSanity = 100
 }
 
-function love.load()
-    love.window.setTitle("Room 404")
-    love.graphics.setFont(love.graphics.newFont(18))
+function player:initialize()
+    self.x = 400
+    self.y = 300
+    self.sanity = self.maxSanity
 end
 
-function love.update(dt)
-    -- Nothing dynamic here for now
-end
-
-function love.draw()
-    -- Slight color change based on loop count
-    local r = 20 + loopCount * 5
-    local g = 20 + loopCount * 3
-    local b = 30 + loopCount * 4
-    love.graphics.clear(r/255, g/255, b/255)
-
-    -- Draw room text
-    love.graphics.printf(roomText, 50, love.graphics.getHeight()/2 - 20, love.graphics.getWidth() - 100, "center")
-    love.graphics.printf("[Press any key to leave]", 50, love.graphics.getHeight() - 80, love.graphics.getWidth() - 100, "center")
-end
-
-function love.keypressed(key)
-    loopCount = loopCount + 1
-
-    -- Update roomText based on loopCount
-    if loopCount <= #subtleChanges then
-        roomText = subtleChanges[loopCount]
-    else
-        roomText = "404. Reality not found."
+function player:update(dt, room)
+    local dx, dy = 0, 0
+    
+    if love.keyboard.isDown("w", "up") then
+        dy = -1
+    elseif love.keyboard.isDown("s", "down") then
+        dy = 1
     end
+    
+    if love.keyboard.isDown("a", "left") then
+        dx = -1
+    elseif love.keyboard.isDown("d", "right") then
+        dx = 1
+    end
+    
+    -- Normalize diagonal movement
+    if dx ~= 0 and dy ~= 0 then
+        dx, dy = dx * 0.707, dy * 0.707
+    end
+    
+    -- Calculate new position
+    local newX = self.x + dx * self.speed * dt
+    local newY = self.y + dy * self.speed * dt
+    
+    -- Check collisions
+    local canMoveX, canMoveY = true, true
+    
+    for _, wall in ipairs(room.walls) do
+        if checkCollision(newX, self.y, self.size, self.size, wall.x, wall.y, wall.width, wall.height) then
+            canMoveX = false
+        end
+        if checkCollision(self.x, newY, self.size, self.size, wall.x, wall.y, wall.width, wall.height) then
+            canMoveY = false
+        end
+    end
+    
+    for _, obj in ipairs(room.objects) do
+        if checkCollision(newX, self.y, self.size, self.size, obj.x, obj.y, obj.width, obj.height) then
+            canMoveX = false
+        end
+        if checkCollision(self.x, newY, self.size, self.size, obj.x, obj.y, obj.width, obj.height) then
+            canMoveY = false
+        end
+    end
+    
+    -- Apply movement
+    if canMoveX then self.x = newX end
+    if canMoveY then self.y = newY end
+    
+    -- Sanity drain over time
+    self.sanity = math.max(0, self.sanity - 0.5 * dt)
+end
+
+function player:draw()
+    love.graphics.setColor(0.2, 0.6, 1)
+    love.graphics.circle("fill", self.x, self.y, self.size)
+end
+
+function player:reset()
+    self.x = 400
+    self.y = 300
+    self.sanity = self.maxSanity
 end
