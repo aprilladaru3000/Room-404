@@ -157,6 +157,18 @@ function handleInventoryInput(key)
         inventory:selectNext()
     elseif key == "return" and #inventory.items > 0 then
         useItem(inventory.items[inventory.selected])
+    elseif key == "d" and #inventory.items > 0 then
+        -- drop selected item into the room near the player
+        if inventory:dropItem(inventory.selected, room, player.x, player.y) then
+            message = "Dropped item"
+            messageTimer = 1.5
+        end
+    elseif key:match("^[1-5]$") then
+        -- quick use number keys 1-5
+        local idx = tonumber(key)
+        if inventory.items[idx] then
+            useItem(inventory.items[idx], idx)
+        end
     end
 end
 
@@ -235,7 +247,22 @@ function handleDoorExamination()
     end
 end
 
-function useItem(item)
+function useItem(item, index)
+    -- If caller passed only an index, normalize to item + index
+    if type(item) == "number" and not index then
+        index = item
+        item = inventory.items[index]
+    end
+
+    if not item then return end
+
+    -- If index not provided, find it so we can remove consumed items
++    if not index then
+        for i, it in ipairs(inventory.items) do
+            if it == item then index = i; break end
+        end
+    end
+
     if item.type == "note" then
         examineObject = item
         gameState = "examining"
@@ -243,6 +270,19 @@ function useItem(item)
         message = "The bulb grows warmer in your hand..."
         messageTimer = 3
         player.sanity = math.min(player.maxSanity, player.sanity + 20)
+        -- bulb is consumed when used
+        if index then inventory:removeItem(index) end
+    elseif item.type == "key" then
+        message = "You examine the key closely. It might fit something nearby."
+        messageTimer = 2
+    elseif item.type == "mirror" then
+        message = item.description or "You look into the mirror..."
+        messageTimer = 3
+        player.sanity = math.max(0, player.sanity - 10)
+        -- mirror remains in inventory (not consumed)
+    else
+        message = "You can't use that here."
+        messageTimer = 2
     end
 end
 
